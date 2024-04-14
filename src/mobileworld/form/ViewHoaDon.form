@@ -38,6 +38,7 @@
               <Component id="jLabel1" min="-2" max="-2" attributes="0"/>
               <EmptySpace max="-2" attributes="0"/>
               <Component id="jPanel1" min="-2" max="-2" attributes="0"/>
+              <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
               <Component id="jPanel9" min="-2" max="-2" attributes="0"/>
               <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
               <Group type="103" groupAlignment="0" max="-2" attributes="0">
@@ -772,12 +773,18 @@
         <Property name="rows" type="int" value="1"/>
       </Layout>
       <SubComponents>
-        <Component class="mobileworld.swing.TextField" name="textField1">
+        <Component class="mobileworld.swing.TextField" name="txtSearchHDCT">
           <Properties>
             <Property name="labelText" type="java.lang.String" value="T&#xec;m Ki&#x1ebf;m"/>
           </Properties>
+          <Events>
+            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="txtSearchHDCTActionPerformed"/>
+          </Events>
         </Component>
-        <Component class="mobileworld.swing.Combobox" name="combobox3">
+        <Component class="mobileworld.swing.Combobox" name="cboNSX">
+          <Events>
+            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="cboNSXActionPerformed"/>
+          </Events>
         </Component>
         <Component class="mobileworld.swing.Combobox" name="combobox2">
         </Component>

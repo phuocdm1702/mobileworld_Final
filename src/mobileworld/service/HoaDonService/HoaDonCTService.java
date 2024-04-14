@@ -13,9 +13,20 @@ import mobileworld.viewModel.HoaDonChiTietModel;
  * @author ADMIN
  */
 public class HoaDonCTService {
+
     HoaDonCTRepository repo = new HoaDonCTRepository();
-        public List<HoaDonChiTietModel> getAll(String idHD) {
-            return repo.getAll(idHD);
+
+    public List<HoaDonChiTietModel> getAll(String idHD) {
+        return repo.getAll(idHD);
+    }
+
+    public List<HoaDonChiTietModel> SearchHDCT(String txt) {
+        return repo.SearchHDCT(txt);
+    }
+    
+        public List<HoaDonChiTietModel> fillNSX(String tenNSX) {
+            return  repo.fillNSX(tenNSX);
         }
+
 
 }

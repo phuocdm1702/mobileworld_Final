@@ -1,12 +1,25 @@
 package mobileworld.form;
 
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.EncodeHintType;
+import com.google.zxing.MultiFormatWriter;
+import com.google.zxing.WriterException;
+import com.google.zxing.client.j2se.MatrixToImageWriter;
+import com.google.zxing.common.BitMatrix;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Hashtable;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import javax.imageio.ImageIO;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JOptionPane;
 import javax.swing.table.DefaultTableModel;
@@ -16,6 +29,9 @@ import mobileworld.viewModel.HoaDonChiTietModel;
 import mobileworld.viewModel.HoaDonModel;
 import mobileworld.model.HoaDon;
 import mobileworld.model.PhuongThucThanhToan;
+import mobileworld.print.print.ReportManager;
+import mobileworld.print.print.model.FieldReportPayment;
+import mobileworld.print.print.model.ParameterReportPayment;
 import mobileworld.qrcode.qrcode;
 import mobileworld.qrcode.qrcode.QRCodeListener;
 import mobileworld.service.HoaDonService.LichSuHDService;
@@ -61,6 +77,7 @@ public final class ViewHoaDon extends javax.swing.JPanel implements QRCodeListen
         showDataTable(list);
 //        showCBOTT(listHD);
 //        showCBO(listPTTT);
+        setDataCboNSXHDCT();
         setOpaque(false);
     }
 
@@ -86,6 +103,14 @@ public final class ViewHoaDon extends javax.swing.JPanel implements QRCodeListen
             return;
         }
 
+    }
+
+    private void setDataCboNSXHDCT() {
+        String[] paymentMethods = {"Tất cả", "Apple", "Samsung", "Xiaomi", "Oppo"};
+        for (String method : paymentMethods) {
+            cboNSX.addItem(method);
+        }
+        cboNSX.setSelectedIndex(0);
     }
 
     public void showDataTable(List<HoaDonModel> list1) {
@@ -178,15 +203,124 @@ public final class ViewHoaDon extends javax.swing.JPanel implements QRCodeListen
         showDataTable3(listLS);
     }
 
-    private void inHoaDon(String invoiceId) {
-        if (sr.inHD(invoiceId)) {
-            JOptionPane.showMessageDialog(this, "In hóa đơn thành công");
-        } else {
-            JOptionPane.showMessageDialog(this, "Có lỗi xảy ra khi in hóa đơn", "Lỗi", JOptionPane.ERROR_MESSAGE);
+//    private void inHoaDon(String invoiceId) {
+//        if (sr.inHD(invoiceId)) {
+//            JOptionPane.showMessageDialog(this, "In hóa đơn thành công");
+//        } else {
+//            JOptionPane.showMessageDialog(this, "Có lỗi xảy ra khi in hóa đơn", "Lỗi", JOptionPane.ERROR_MESSAGE);
+//        }
+//    }
+    private ByteArrayInputStream generateQrcode(String invoiceNumber) throws WriterException {
+        try {
+            // Kiểm tra xem invoiceNumber có giá trị không
+            if (invoiceNumber == null || invoiceNumber.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Mã hóa đơn không hợp lệ");
+                return null;
+            }
+
+            // Sử dụng mã hóa đơn để tạo mã QR
+            int width = 300;
+            int height = 300;
+            Map<EncodeHintType, Object> hints = new Hashtable<>();
+
+//            Map<EncodeHintType, Object> hints = new EnumMap<>(EncodeHintType.class);
+//            hints.put(EncodeHintType.MARGIN, 0); // Đặt margin là 2
+//            BitMatrix bitMatrix = new MultiFormatWriter().encode(invoiceNumber, com.google.zxing.BarcodeFormat.QR_CODE, width, height, hints);
+            BitMatrix bitMatrix;
+            bitMatrix = new MultiFormatWriter().encode(invoiceNumber, BarcodeFormat.QR_CODE, width, height, (Hashtable) hints);
+            // Tiếp tục xử lý BitMatrix...
+
+            // Chuyển đổi bitMatrix thành hình ảnh
+            BufferedImage image = MatrixToImageWriter.toBufferedImage(bitMatrix);
+
+            // Chuyển đổi hình ảnh thành mảng byte
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            ImageIO.write(image, "png", outputStream);
+
+            // Hiển thị kết quả
+            System.out.println(invoiceNumber);
+
+            // Trả về InputStream từ mảng byte
+            return new ByteArrayInputStream(outputStream.toByteArray());
+        } catch (IOException e) {
+            // Xử lý ngoại lệ, ví dụ: hiển thị thông báo lỗi cho người dùng hoặc log lỗi
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Lỗi khi tạo mã QR Code: " + e.getMessage());
+            return null;
         }
     }
 
-    @SuppressWarnings("unchecked")
+    private void printHD() {
+        try {
+            //int rowIndex = jTable1.getSelectedRow();
+            int rowIndex = tblHienThi1.getSelectedRow();
+
+            if (rowIndex >= 0) {
+                HoaDonModel hd = list.get(rowIndex);
+                tableModel = (DefaultTableModel) tblHienThi2.getModel();
+                list2 = srCT.getAll(hd.getIdHD());
+                showDataTable2(list2);
+                List<FieldReportPayment> fields = new ArrayList<>();
+
+                // Lặp qua các hàng trong bảng jTable2 để lấy thông tin chi tiết
+                for (int i = 0; i < tblHienThi2.getRowCount(); i++) {
+                    // Lấy dữ liệu từ mỗi hàng
+                    String tenSanPham = tblHienThi2.getValueAt(i, 2).toString();
+                    String mauSac = (String) tableModel2.getValueAt(i, 4);
+                    String pin = (String) tblHienThi2.getValueAt(i, 5);
+
+                    String thanhTien = String.valueOf(tblHienThi2.getValueAt(i, 8));
+                    String giaBan = String.valueOf(tblHienThi2.getValueAt(i, 7));
+
+                    // Loại bỏ các kí tự không phải số và dấu chấm thập phân
+                    giaBan = giaBan.replaceAll("[^\\d.]", "");
+                    // In dữ liệu ra console
+                    System.out.println("Tên sản phẩm: " + tenSanPham);
+                    System.out.println("Tổng tiền: " + giaBan);
+
+                    // Thêm thông tin vào danh sách fields để tạo báo cáo
+                    fields.add(new FieldReportPayment(i + 1, tenSanPham, mauSac, pin, giaBan + "VND", thanhTien + "VND"));
+
+                }
+                // Kiểm tra nếu có dữ liệu để tạo báo cáo
+                if (!fields.isEmpty()) {
+                    // Tạo mã QR Code
+                    ByteArrayInputStream qrCodeStream = generateQrcode(hd.getIdHD());
+                    byte[] data = qrCodeStream.readAllBytes();
+                    String qrCodeData = new String(data);
+                    System.out.println("QR Code Data: " + qrCodeData);
+                    if (qrCodeStream != null) {
+
+                        // Tạo tham số để in báo cáo
+                        ParameterReportPayment dataPrint = new ParameterReportPayment(hd.getIdHD(), String.valueOf(hd.getNgayThanhToan()), hd.getTenKH(), hd.getSDTKH(), hd.getDiaChiKH(), hd.getTenKieuThanhToan(), String.valueOf(hd.getTongTien()).replaceAll("[^\\d.]", ""), qrCodeStream, fields);
+                        // Cập nhật trường hình ảnh trong ParameterReportPayment với dữ liệu của mã QR Code
+                        // Trước khi gọi printReportPayment
+                        ReportManager reportManager = ReportManager.getInstance();
+
+                        // Check parameters before printing the report
+                        reportManager.checkReportParameters(dataPrint);
+
+                        // Check JRXML path and compilation before printing the report
+                        reportManager.checkJRXMLPath();
+                        reportManager.checkCompilation();
+
+                        // Print the report after ensuring all preparations are done
+                        reportManager.printReportPayment(dataPrint);
+
+                        // Gọi phương thức in báo cáo
+                    }
+                } else {
+                    JOptionPane.showMessageDialog(this, "Không có dữ liệu để tạo báo cáo.");
+                }
+            } else {
+                JOptionPane.showMessageDialog(this, "Bạn chưa chọn hóa đơn để in ra.");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+        @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
@@ -222,8 +356,8 @@ public final class ViewHoaDon extends javax.swing.JPanel implements QRCodeListen
         jScrollPane4 = new javax.swing.JScrollPane();
         tblHienThi3 = new mobileworld.swing.Table();
         jPanel9 = new javax.swing.JPanel();
-        textField1 = new mobileworld.swing.TextField();
-        combobox3 = new mobileworld.swing.Combobox();
+        txtSearchHDCT = new mobileworld.swing.TextField();
+        cboNSX = new mobileworld.swing.Combobox();
         combobox2 = new mobileworld.swing.Combobox();
         combobox1 = new mobileworld.swing.Combobox();
         combobox4 = new mobileworld.swing.Combobox();
@@ -579,9 +713,20 @@ public final class ViewHoaDon extends javax.swing.JPanel implements QRCodeListen
         jPanel9.setOpaque(false);
         jPanel9.setLayout(new java.awt.GridLayout(1, 0, 15, 0));
 
-        textField1.setLabelText("Tìm Kiếm");
-        jPanel9.add(textField1);
-        jPanel9.add(combobox3);
+        txtSearchHDCT.setLabelText("Tìm Kiếm");
+        txtSearchHDCT.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                txtSearchHDCTActionPerformed(evt);
+            }
+        });
+        jPanel9.add(txtSearchHDCT);
+
+        cboNSX.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                cboNSXActionPerformed(evt);
+            }
+        });
+        jPanel9.add(cboNSX);
         jPanel9.add(combobox2);
         jPanel9.add(combobox1);
         jPanel9.add(combobox4);
@@ -625,6 +770,7 @@ public final class ViewHoaDon extends javax.swing.JPanel implements QRCodeListen
                 .addComponent(jLabel1)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(0, 0, 0)
                 .addComponent(jPanel9, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(0, 0, Short.MAX_VALUE)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
@@ -658,8 +804,9 @@ public final class ViewHoaDon extends javax.swing.JPanel implements QRCodeListen
             int check = JOptionPane.showConfirmDialog(this, "Bạn có muốn in Hoa Đơn đã chọn không?", "Confirm", JOptionPane.YES_NO_CANCEL_OPTION);
             if (check == JOptionPane.YES_OPTION) {
                 // Nếu người dùng chọn Yes, thực hiện in Hoa Đơn
-                HoaDonModel hdm = list.get(index);
-                inHoaDon(hdm.getIdHD());
+//                HoaDonModel hdm = list.get(index);
+//                inHoaDon(hdm.getIdHD());
+                  printHD();
             }
         } else {
             // Nếu không có hàng nào được chọn, hiển thị thông báo lỗi
@@ -736,6 +883,37 @@ public final class ViewHoaDon extends javax.swing.JPanel implements QRCodeListen
         jLabel9.setText(formattedValue + " " + "VNĐ");
     }//GEN-LAST:event_sliderGradient1StateChanged
 
+    private void txtSearchHDCTActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtSearchHDCTActionPerformed
+        // TODO add your handling code here:
+        if (txtSearchHDCT.getText().trim().length() == 0) {
+            JOptionPane.showMessageDialog(this, "Vui lòng nhập thông tin cần tìm kiếm.", "ERROR", JOptionPane.QUESTION_MESSAGE);
+            txtSearchHDCT.setText("");
+            return;
+        }
+        list22 = srCT.SearchHDCT(txtSearchHDCT.getText());
+
+        int index = tblHienThi2.getRowCount();
+        if (index >= 1) {
+            showDataTable2(list22);
+            JOptionPane.showMessageDialog(this, "Search thành công.");
+            return;
+        } else {
+            JOptionPane.showMessageDialog(this, "Không tìm thấy dữ liệu.");
+            return;
+        }
+
+    }//GEN-LAST:event_txtSearchHDCTActionPerformed
+
+    private void cboNSXActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_cboNSXActionPerformed
+        // TODO add your handling code here:
+        String tenNSX = String.valueOf(cboNSX.getSelectedItem());
+        showDataTable2(srCT.fillNSX(tenNSX));
+        if (cboNSX.equals("Tất cả")) {
+            showDataTable2(list22);
+
+        }
+    }//GEN-LAST:event_cboNSXActionPerformed
+
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private mobileworld.swing.BadgeButton badgeButton1;
@@ -745,9 +923,9 @@ public final class ViewHoaDon extends javax.swing.JPanel implements QRCodeListen
     private mobileworld.swing.ButtonCustom btnXuatHoaDon;
     private mobileworld.swing.ButtonCustom buttonCustom1;
     private mobileworld.swing.ButtonCustom buttonCustom4;
+    private mobileworld.swing.Combobox cboNSX;
     private mobileworld.swing.Combobox combobox1;
     private mobileworld.swing.Combobox combobox2;
-    private mobileworld.swing.Combobox combobox3;
     private mobileworld.swing.Combobox combobox4;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
@@ -775,8 +953,8 @@ public final class ViewHoaDon extends javax.swing.JPanel implements QRCodeListen
     private mobileworld.swing.Table tblHienThi1;
     private mobileworld.swing.Table tblHienThi2;
     private mobileworld.swing.Table tblHienThi3;
-    private mobileworld.swing.TextField textField1;
     private mobileworld.swing.TextField txtSearch;
+    private mobileworld.swing.TextField txtSearchHDCT;
     // End of variables declaration//GEN-END:variables
 
 }
